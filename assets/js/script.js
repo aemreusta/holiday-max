@@ -275,7 +275,27 @@ async function calculateLeaves(reuseLastData = false) {
             // Perform new calculation
             proposedLeaves = findEfficientLeaves(maxLeaves) || [];
             allHolidays = getHolidayDates() || new Set();
-            allOffDays = new Set([...proposedLeaves, ...Array.from(allHolidays)]);
+
+            // Initialize Sets to avoid duplicates
+            const weekends = new Set();
+            const holidaysAndLeaves = new Set([...proposedLeaves, ...Array.from(allHolidays)]);
+            let currentDate = new Date('2025-01-01');
+            const endDate = new Date('2025-12-31');
+
+            // Add weekends (Saturday and Sunday) to the weekends Set
+            while (currentDate <= endDate) {
+                const dayOfWeek = currentDate.getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                    weekends.add(currentDate.getTime());
+                }
+                currentDate = addDays(currentDate, 1);
+            }
+
+            // Combine weekends and holidays/leaves, avoiding duplicates
+            allOffDays = new Set([...weekends, ...Array.from(holidaysAndLeaves).map(date => date.getTime())]);
+            allOffDays = new Set([...allOffDays].map(ts => new Date(ts))); // Convert back to Date objects for display
+
+            // Calculate consecutive periods based on leaves and holidays
             consecutivePeriods = calculateConsecutiveDays(proposedLeaves, allHolidays) || [];
             totalConsecutiveDays = consecutivePeriods.reduce((sum, period) => sum + period.length, 0);
 
