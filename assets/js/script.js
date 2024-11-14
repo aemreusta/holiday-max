@@ -39,6 +39,8 @@ const translations = {
     }
 };
 
+let lastCalculatedData = null; // Store results of last calculation
+
 // Helper functions
 function strToDate(dateStr) {
     return new Date(dateStr);
@@ -250,7 +252,7 @@ function createResultsHTML(proposedLeaves, consecutivePeriods, totalConsecutiveD
     `;
 }
 
-async function calculateLeaves() {
+async function calculateLeaves(reuseLastData = false) {
     try {
         showLoading();
 
@@ -264,23 +266,34 @@ async function calculateLeaves() {
             throw new Error(lang.errorMessage);
         }
 
-        const proposedLeaves = findEfficientLeaves(maxLeaves);
-        const allHolidays = getHolidayDates();
-        
-        const result = calculateConsecutiveDays(proposedLeaves, allHolidays);
-        const consecutivePeriods = result.periods;
-        const totalConsecutiveDays = consecutivePeriods.reduce((sum, period) => sum + period.length, 0);
-        const totalHolidays = result.totalDays;
+        let proposedLeaves, allHolidays, allOffDays, consecutivePeriods, totalConsecutiveDays;
 
+        if (reuseLastData && lastCalculatedData) {
+            // Use previously calculated data
+            ({ proposedLeaves, allHolidays, allOffDays, consecutivePeriods, totalConsecutiveDays } = lastCalculatedData);
+        } else {
+            // Perform new calculation
+            proposedLeaves = findEfficientLeaves(maxLeaves) || [];
+            allHolidays = getHolidayDates() || new Set();
+            allOffDays = new Set([...proposedLeaves, ...Array.from(allHolidays)]);
+            consecutivePeriods = calculateConsecutiveDays(proposedLeaves, allHolidays) || [];
+            totalConsecutiveDays = consecutivePeriods.reduce((sum, period) => sum + period.length, 0);
+
+            // Save current calculation to reuse
+            lastCalculatedData = { proposedLeaves, allHolidays, allOffDays, consecutivePeriods, totalConsecutiveDays };
+        }
+
+        // Generate the results HTML
         const resultsHTML = createResultsHTML(
             proposedLeaves,
             consecutivePeriods,
             totalConsecutiveDays,
-            totalHolidays,
+            allOffDays.size,
             lang,
             langCode
         );
 
+        // Display results
         const resultsElement = document.getElementById('results');
         resultsElement.style.display = 'block';
         resultsElement.innerHTML = resultsHTML;
@@ -337,10 +350,9 @@ function switchLanguage() {
     document.getElementById('calculateBtn').textContent = lang.calculateButton;
     document.getElementById('error').textContent = lang.errorMessage;
 
-    // Reset the results view to ensure consistency
-    document.getElementById('results').style.display = 'none';
+    // Reload results in new language using last calculated data
+    calculateLeaves(true);
 }
-
 
 // Path: assets/js/main.js
 // main.js
