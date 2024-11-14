@@ -12,6 +12,33 @@ const holidays = {
     "Cumhuriyet Bayramı": ["2025-10-29"]
 };
 
+const translations = {
+    en: {
+        title: "2025 Leave Planner",
+        maxLeavesLabel: "Max allowed leave days:",
+        calculateButton: "Calculate",
+        errorMessage: "Something went wrong. Please try again.",
+        proposedLeavesTitle: "Recommended Leave Days for 2025",
+        longWeekendTitle: "Extended Weekends and Holiday Periods",
+        totalConsecutiveDays: "Total continuous holiday days:",
+        totalHolidays: "Total days off in 2025 (includes weekends, public holidays, and leave days):",
+        dateRangeSeparator: "to", // Used for date ranges
+        days: "days",
+    },
+    tr: {
+        title: "2025 İzin Planlayıcı",
+        maxLeavesLabel: "Maksimum izin günleri:",
+        calculateButton: "Hesapla",
+        errorMessage: "Bir hata oluştu. Lütfen tekrar deneyin.",
+        proposedLeavesTitle: "2025 İçin Önerilen İzin Günleri",
+        longWeekendTitle: "Uzun Hafta Sonu / Tatil Dönemleri",
+        totalConsecutiveDays: "Toplam ardışık tatil günleri:",
+        totalHolidays: "2025'te toplam tatil günleri (hafta sonları, resmi tatiller ve izin günleri dahil):",
+        dateRangeSeparator: "ile", // Used for date ranges
+        days: "gün",
+    }
+};
+
 // Helper functions
 function strToDate(dateStr) {
     return new Date(dateStr);
@@ -160,8 +187,8 @@ function calculateConsecutiveDays(proposedLeaves, allHolidays) {
     return consecutivePeriods;
 }
 
-function formatDate(date) {
-    return date.toLocaleDateString('tr-TR', {
+function formatDate(date, langCode) {
+    return date.toLocaleDateString(langCode, {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -169,13 +196,154 @@ function formatDate(date) {
     });
 }
 
-function formatDateShort(date) {
-    return date.toLocaleDateString('tr-TR', {
+function formatDateShort(date, langCode) {
+    return date.toLocaleDateString(langCode, {
         day: '2-digit',
         month: 'long'
     });
 }
 
+// UI related functions
+function showLoading() {
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('calculateBtn').disabled = true;
+}
+
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('calculateBtn').disabled = false;
+}
+
+function showError(message) {
+    const errorElement = document.getElementById('error');
+    errorElement.textContent = message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+    errorElement.style.display = 'block';
+    hideLoading();
+}
+
+function createResultsHTML(proposedLeaves, consecutivePeriods, totalConsecutiveDays, totalHolidays, lang, langCode) {
+    return `
+        <div class="results-section">
+            <h2>${lang.proposedLeavesTitle} (${proposedLeaves.length} ${lang.days}):</h2>
+            <ul class="leave-days">
+                ${proposedLeaves.map(date => 
+                    `<li>${formatDate(date, langCode)}</li>`
+                ).join('')}
+            </ul>
+
+            <h2>${lang.longWeekendTitle}:</h2>
+            <ul class="holiday-periods">
+                ${consecutivePeriods.map(period => {
+                    const rangeText = langCode === 'tr-TR' 
+                        ? `${formatDateShort(period[0], langCode)} ${lang.dateRangeSeparator} ${formatDateShort(period[period.length - 1], langCode)} arası` 
+                        : `${formatDateShort(period[0], langCode)} ${lang.dateRangeSeparator} ${formatDateShort(period[period.length - 1], langCode)}`;
+                    return `<li>${rangeText}: ${period.length} ${lang.days}</li>`;
+                }).join('')}
+            </ul>
+
+            <div class="summary">
+                <p>${lang.totalConsecutiveDays} ${totalConsecutiveDays}</p>
+                <p>${lang.totalHolidays} ${totalHolidays}</p>
+            </div>
+        </div>
+    `;
+}
+
+async function calculateLeaves() {
+    try {
+        showLoading();
+
+        const maxLeavesInput = document.getElementById('maxLeaves');
+        const maxLeaves = parseInt(maxLeavesInput.value);
+        const selectedLanguage = document.getElementById('languageSelect').value;
+        const lang = translations[selectedLanguage];
+        const langCode = selectedLanguage === 'tr' ? 'tr-TR' : 'en-US';
+
+        if (isNaN(maxLeaves) || maxLeaves < 1 || maxLeaves > 30) {
+            throw new Error(lang.errorMessage);
+        }
+
+        const proposedLeaves = findEfficientLeaves(maxLeaves);
+        const allHolidays = getHolidayDates();
+        
+        const result = calculateConsecutiveDays(proposedLeaves, allHolidays);
+        const consecutivePeriods = result.periods;
+        const totalConsecutiveDays = consecutivePeriods.reduce((sum, period) => sum + period.length, 0);
+        const totalHolidays = result.totalDays;
+
+        const resultsHTML = createResultsHTML(
+            proposedLeaves,
+            consecutivePeriods,
+            totalConsecutiveDays,
+            totalHolidays,
+            lang,
+            langCode
+        );
+
+        const resultsElement = document.getElementById('results');
+        resultsElement.style.display = 'block';
+        resultsElement.innerHTML = resultsHTML;
+        
+        hideLoading();
+
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Set default language based on browser language
+    const browserLang = navigator.language || navigator.languages[0];
+    const defaultLang = browserLang.startsWith('tr') ? 'tr' : 'en';
+    document.getElementById('languageSelect').value = defaultLang;
+    switchLanguage();
+
+    // Hide results initially
+    document.getElementById('results').style.display = 'none';
+
+    const maxLeavesInput = document.getElementById('maxLeaves');
+    let debounceTimeout;
+
+    // Function to trigger calculation with debouncing
+    const triggerCalculation = () => {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            calculateLeaves();
+        }, 300);
+    };
+
+    // Event listener for input and change events on maxLeaves input
+    maxLeavesInput.addEventListener('input', triggerCalculation);
+    maxLeavesInput.addEventListener('change', triggerCalculation);
+
+    // Language switch event listener
+    document.getElementById('languageSelect').addEventListener('change', switchLanguage);
+
+    // Trigger calculation only when the button is clicked for the first time
+    document.getElementById('calculateBtn').addEventListener('click', () => {
+        calculateLeaves();
+        document.getElementById('results').style.display = 'block'; // Show results after first calculation
+    });
+});
+
+// Language switching function
+function switchLanguage() {
+    const selectedLanguage = document.getElementById('languageSelect').value;
+    const lang = translations[selectedLanguage];
+
+    document.querySelector('h1').textContent = lang.title;
+    document.querySelector('label[for="maxLeaves"]').textContent = lang.maxLeavesLabel;
+    document.getElementById('calculateBtn').textContent = lang.calculateButton;
+    document.getElementById('error').textContent = lang.errorMessage;
+
+    // Reset the results view to ensure consistency
+    document.getElementById('results').style.display = 'none';
+}
+
+
+// Path: assets/js/main.js
+// main.js
 function main() {
     const maxLeaves = 14;
     const proposedLeaves = findEfficientLeaves(maxLeaves);
@@ -214,133 +382,3 @@ function main() {
 }
 
 main();
-
-// UI related functions
-function showLoading() {
-    document.getElementById('loading').style.display = 'flex';
-    document.getElementById('error').style.display = 'none';
-    document.getElementById('calculateBtn').disabled = true;
-}
-
-function hideLoading() {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('calculateBtn').disabled = false;
-}
-
-function showError(message) {
-    const errorElement = document.getElementById('error');
-    errorElement.textContent = message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
-    errorElement.style.display = 'block';
-    hideLoading();
-}
-
-function formatDateForDisplay(date) {
-    return date.toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-        weekday: 'long'
-    });
-}
-
-function formatDateShort(date) {
-    return date.toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: 'long'
-    });
-}
-
-function createResultsHTML(proposedLeaves, consecutivePeriods, totalConsecutiveDays, totalHolidays) {
-    return `
-        <div class="results-section">
-            <h2>2025 için Önerilen İzin Günleri (${proposedLeaves.length} gün):</h2>
-            <ul class="leave-days">
-                ${proposedLeaves.map(date => 
-                    `<li>${formatDateForDisplay(date)}</li>`
-                ).join('')}
-            </ul>
-
-            <h2>Uzun Hafta Sonu/Tatil Dönemleri:</h2>
-            <ul class="holiday-periods">
-                ${consecutivePeriods.map(period => 
-                    `<li>${formatDateShort(period[0])} ile ${formatDateShort(period[period.length - 1])} arası: ${period.length} gün</li>`
-                ).join('')}
-            </ul>
-
-            <div class="summary">
-                <p>Toplam ardışık tatil günleri: ${totalConsecutiveDays}</p>
-                <p>2025'te toplam tatil günleri (tüm haftasonları + resmi tatiller + izinler): ${totalHolidays}</p>
-            </div>
-        </div>
-    `;
-}
-
-async function calculateLeaves() {
-    try {
-        showLoading();
-
-        const maxLeavesInput = document.getElementById('maxLeaves');
-        const maxLeaves = parseInt(maxLeavesInput.value);
-
-        if (isNaN(maxLeaves) || maxLeaves < 1 || maxLeaves > 30) {
-            throw new Error('Lütfen 1-30 arasında bir sayı girin.');
-        }
-
-        // Add artificial delay to show loading state (remove in production)
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const proposedLeaves = findEfficientLeaves(maxLeaves);
-        const allHolidays = getHolidayDates();
-        
-        // Calculate all off days
-        const allOffDays = new Set();
-        let current = new Date('2025-01-01');
-        const endOfYear = new Date('2025-12-31');
-        
-        while (current <= endOfYear) {
-            if (current.getDay() === 0 || current.getDay() === 6 || 
-                Array.from(allHolidays).some(d => areDatesEqual(d, current))) {
-                allOffDays.add(new Date(current));
-            }
-            current = addDays(current, 1);
-        }
-        proposedLeaves.forEach(date => allOffDays.add(date));
-
-        const consecutivePeriods = calculateConsecutiveDays(proposedLeaves, allHolidays);
-        const totalConsecutiveDays = consecutivePeriods.reduce((sum, period) => sum + period.length, 0);
-
-        const resultsHTML = createResultsHTML(
-            proposedLeaves,
-            consecutivePeriods,
-            totalConsecutiveDays,
-            allOffDays.size
-        );
-
-        document.getElementById('results').innerHTML = resultsHTML;
-        hideLoading();
-
-    } catch (error) {
-        console.error('Calculation error:', error);
-        showError(error.message);
-    }
-}
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    const maxLeavesInput = document.getElementById('maxLeaves');
-    let debounceTimeout;
-
-    const triggerCalculation = () => {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(() => {
-            calculateLeaves();
-        }, 300); // Adjust the delay as needed (300ms works well for debouncing)
-    };
-
-    // Trigger calculation on input and change events
-    maxLeavesInput.addEventListener('input', triggerCalculation);
-    maxLeavesInput.addEventListener('change', triggerCalculation);
-
-    // Calculate initial results on page load
-    calculateLeaves();
-});

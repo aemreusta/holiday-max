@@ -24,23 +24,54 @@
     </script>
 </head>
 <body>
-    <div class="container">
-        <div id="loading" class="loading-overlay">
-            <div class="spinner"></div>
-        </div>
-        
-        <div id="error" class="error-message" style="display: none;">
-            Bir hata oluştu. Lütfen tekrar deneyin.
+    <div class="wrapper">
+        <!-- Main container with inputs and controls -->
+        <div class="container">
+            <div class="language-selector">
+                <label for="languageSelect">Language:</label>
+                <select id="languageSelect" onchange="switchLanguage()">
+                    <option value="tr">Türkçe</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+            <!-- Loading spinner overlay -->
+            <div id="loading" class="loading-overlay">
+                <div class="spinner"></div>
+            </div>
+            
+            <!-- Error message container -->
+            <div id="error" class="error-message" style="display: none;">
+                Bir hata oluştu. Lütfen tekrar deneyin.
+            </div>
+
+            <h1>2025 İzin Planlayıcı</h1>
+            <div>
+                <label for="maxLeaves">Maksimum izin günü sayısı:</label>
+                <input type="number" id="maxLeaves" value="14" min="1" max="30">
+                <button onclick="calculateLeaves()" id="calculateBtn">Hesapla</button>
+            </div>
         </div>
 
-        <h1>2025 İzin Planlayıcı</h1>
-        <div>
-            <label for="maxLeaves">Maksimum izin günü sayısı:</label>
-            <input type="number" id="maxLeaves" value="14" min="1" max="30">
-            <button onclick="calculateLeaves()" id="calculateBtn">Hesapla</button>
+        <!-- Results container, initially hidden -->
+        <div id="results" class="results" style="display: none;">
+            <h2>Önerilen İzin Günleri</h2>
+            <ul id="leaveDaysList" class="leave-days">
+                <!-- Dynamically populated leave days go here -->
+            </ul>
+
+            <h2>Uzun Hafta Sonları ve Tatil Dönemleri</h2>
+            <ul id="holidayPeriodsList" class="holiday-periods">
+                <!-- Dynamically populated holiday periods go here -->
+            </ul>
+
+            <!-- Summary section with totals -->
+            <div class="summary">
+                <p>Toplam ardışık tatil günleri: <span id="totalConsecutiveDays">0</span> gün</p>
+                <p>2025'te toplam tatil günleri: <span id="totalHolidays">0</span> gün</p>
+            </div>
         </div>
     </div>
-    <div id="results" class="results"></div>
 
     <script src="assets/js/script.js"></script>
 </body>
