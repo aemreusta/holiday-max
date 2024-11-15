@@ -1,0 +1,14 @@
+{
+  "name": "leave-planner",
+  "version": "1.0.0",
+  "description": "A leave planner for 2025",
+  "main": "script.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Ahmet Emre Usta",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
